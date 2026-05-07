@@ -21,12 +21,6 @@ export class MasterController {
 
   @Get('tasks')
   async getTasks() {
-    console.log('📡 API: GET /master/tasks called');
-    if (!this.prisma) {
-      console.error('❌ CRITICAL: this.prisma is undefined in MasterController');
-      throw new Error('Internal Server Error: Prisma not initialized');
-    }
-    
     return this.prisma.taskMaster.findMany({
       orderBy: { name: 'asc' }
     });
