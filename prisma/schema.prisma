@@ -1,0 +1,283 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  phone     String?
+  users     User[]
+  orders    Order[]
+  warehouses Warehouse[]
+  inventory Inventory[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   // admin, mechanic, head_workshop
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  isLead    Boolean  @default(false)
+  leadOrders Order[] @relation("LeadMechanic")
+  assignedOrders OrderAssignment[]
+  auditLogs AuditLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id              String   @id @default(uuid())
+  name            String
+  type            String   // individual, corporate
+  email           String?
+  phone           String?
+  address         String?
+  corporatePricing String?  // fixed, flexible
+  termsDays       Int?     @default(0)
+  vehicles        Vehicle[]
+  orders          Order[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Vehicle {
+  id            String   @id @default(uuid())
+  plateNumber   String   @unique
+  chassisNumber String?
+  engineNumber  String?
+  model         String?  // Keep as optional for backward compatibility if needed, or remove
+  modelId       String?
+  vehicleModel  VehicleModel? @relation(fields: [modelId], references: [id])
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model VehicleModel {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  brand     String?
+  vehicles  Vehicle[]
+  createdAt DateTime  @default(now())
+}
+
+model TaskMaster {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  category    String?     // engine, brake, electrical
+  standardPrice Decimal
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+}
+
+model Order {
+  id              String   @id @default(uuid())
+  spkNumber       String   @unique
+  woNumber        String?  @unique
+  referenceNumber String?
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id])
+  complaint       String
+  analysis        String?
+  serviceType     String   // walk-in, on-site, pickup-delivery
+  odometer        Int
+  status          String   // draft, analysis, estimate, approved, on_progress, qc, completed, invoiced, paid, cancelled
+  leadMechanicId  String?
+  leadMechanic    User?    @relation("LeadMechanic", fields: [leadMechanicId], references: [id])
+  mechanics       OrderAssignment[]
+  estimatedTotal  Decimal  @default(0)
+  items           OrderItem[]
+  invoice         Invoice?
+  qcChecklist     QcRecord?
+  sparePartRequests SparePartRequest[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model OrderAssignment {
+  id        String @id @default(uuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id])
+  mechanicId String
+  mechanic  User   @relation(fields: [mechanicId], references: [id])
+}
+
+model OrderItem {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id])
+  partId      String?
+  part        SparePart?  @relation(fields: [partId], references: [id])
+  taskId      String?
+  task        TaskMaster? @relation(fields: [taskId], references: [id])
+  serviceName String?     // legacy or custom service
+  quantity    Float
+  price       Decimal
+  discount    Decimal     @default(0)
+  isService   Boolean     @default(false)
+}
+
+model SparePart {
+  id             String   @id @default(uuid())
+  name           String
+  code           String   @unique
+  unit           String
+  category       String?
+  basePrice      Decimal
+  isConsignment  Boolean  @default(false)
+  inventory      Inventory[]
+  requestItems   SparePartRequestItem[]
+  orderItems     OrderItem[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Inventory {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+  partId    String
+  part      SparePart @relation(fields: [partId], references: [id])
+  quantity  Float     @default(0)
+  reserved  Float     @default(0)
+  minStock  Float     @default(0)
+  
+  // Location Hierarchy
+  zone      String?
+  rack      String?
+  shelf     String?
+  bin       String?
+  
+  movements InventoryMovement[]
+  updatedAt DateTime @updatedAt
+
+  @@unique([branchId, partId, warehouseId])
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  name      String
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  inventory Inventory[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryMovement {
+  id           String   @id @default(uuid())
+  inventoryId  String
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
+  type         String   // in, out, reservation, release, transfer, adjustment
+  quantity     Float
+  referenceId  String?  // Order ID, Transfer ID, etc.
+  referenceType String? // "order", "transfer", "adjustment"
+  note         String?
+  userId       String?
+  createdAt    DateTime @default(now())
+}
+
+model SparePartRequest {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  status      String   // pending, approved, issued, rejected
+  items       SparePartRequestItem[]
+  createdAt   DateTime @default(now())
+}
+
+model SparePartRequestItem {
+  id        String @id @default(uuid())
+  requestId String
+  request   SparePartRequest @relation(fields: [requestId], references: [id])
+  partId    String
+  part      SparePart @relation(fields: [partId], references: [id])
+  quantity  Float
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  number        String   @unique
+  totalAmount   Decimal
+  status        String   // draft, approved, delivered, paid, partially_paid
+  dueDate       DateTime?
+  deliveryDate  DateTime?
+  payments      Payment[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Payment {
+  id               String            @id @default(uuid())
+  invoiceId        String
+  invoice          Invoice           @relation(fields: [invoiceId], references: [id])
+  amount           Decimal
+  method           String            // cash, bank_transfer
+  accountId        String?
+  account          FinancialAccount? @relation(fields: [accountId], references: [id])
+  reference        String?
+  createdAt        DateTime          @default(now())
+}
+
+model FinancialAccount {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  type      String    // bank, cash
+  balance   Decimal   @default(0)
+  payments  Payment[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String
+  message     String
+  type        String   // info, warning, error, success
+  category    String   // inventory, billing, system
+  referenceId String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model QcRecord {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  checklist   String   // JSON string
+  pass        Boolean
+  verifiedBy  String?
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  action       String
+  resourceType String
+  resourceId   String?
+  details      String?
+  timestamp    DateTime @default(now())
+}

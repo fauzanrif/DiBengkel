@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "Branch": {
+      "title": "Branch",
+      "description": "Physical workshop locations",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Staff members (Mechanics, Admins, Head Workshop)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "mechanic", "head_workshop"] },
+        "branchId": { "type": "string" },
+        "isLead": { "type": "boolean" }
+      },
+      "required": ["uid", "name", "role", "branchId"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Individual or corporate clients",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["individual", "corporate"] },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "corporatePricing": { "type": "string", "enum": ["fixed", "flexible"] },
+        "termsDays": { "type": "number" }
+      },
+      "required": ["name", "type"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Customer vehicle details",
+      "type": "object",
+      "properties": {
+        "plateNumber": { "type": "string" },
+        "chassisNumber": { "type": "string" },
+        "engineNumber": { "type": "string" },
+        "model": { "type": "string" },
+        "customerId": { "type": "string" }
+      },
+      "required": ["plateNumber", "customerId"]
+    },
+    "Order": {
+      "title": "Work Order (SPK)",
+      "description": "Main service order record",
+      "type": "object",
+      "properties": {
+        "spkNumber": { "type": "string" },
+        "branchId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "complaint": { "type": "string" },
+        "analysis": { "type": "string" },
+        "serviceType": { "type": "string", "enum": ["walk-in", "on-site", "pickup-delivery"] },
+        "odometer": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "analysis", "estimate", "waiting_approval", "approved", "on_progress", "qc", "completed", "invoiced", "paid", "cancelled", "pending_sparepart"] },
+        "leadMechanicId": { "type": "string" },
+        "mechanicIds": { "type": "array", "items": { "type": "string" } },
+        "estimatedTotal": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["spkNumber", "branchId", "customerId", "vehicleId", "status"]
+    },
+    "SparePart": {
+      "title": "Spare Part",
+      "description": "Individual spare part item across all branches",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "unit": { "type": "string" },
+        "category": { "type": "string" },
+        "basePrice": { "type": "number" },
+        "isConsignment": { "type": "boolean" },
+        "supplierId": { "type": "string" }
+      },
+      "required": ["name", "code", "unit"]
+    },
+    "Inventory": {
+      "title": "Inventory Record",
+      "description": "Stock levels per branch",
+      "type": "object",
+      "properties": {
+        "partId": { "type": "string" },
+        "branchId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "reserved": { "type": "number" },
+        "minStock": { "type": "number" }
+      },
+      "required": ["partId", "branchId", "quantity"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Billing record for an order",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "discountType": { "type": "string", "enum": ["flat", "percentage"] },
+        "discountValue": { "type": "number" },
+        "status": { "type": "string", "enum": ["unpaid", "paid", "overdue"] },
+        "dueDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["orderId", "invoiceNumber", "totalAmount"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "System activity logs",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "resourceType": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "branches": { "schema": "Branch", "description": "Workshop branches" },
+    "users": { "schema": "User", "description": "Personnel profiles" },
+    "customers": { "schema": "Customer", "description": "Customer list" },
+    "vehicles": { "schema": "Vehicle", "description": "Vehicle database" },
+    "orders": { "schema": "Order", "description": "Work orders (SPKs)" },
+    "spareParts": { "schema": "SparePart", "description": "Global spare part definitions" },
+    "inventory": { "schema": "Inventory", "description": "Branch-specific stock levels" },
+    "invoices": { "schema": "Invoice", "description": "Billing records" },
+    "auditLogs": { "schema": "AuditLog", "description": "Security and activity logs" }
+  }
+}

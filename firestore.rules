@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // GLOBAL HELPERS
+    // -------------------------------------------------------------------------
+    function isSignedIn() { return request.auth != null; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isSignedIn() && getUserData().role == 'admin'; }
+    function isHeadWorkshop() { return isSignedIn() && getUserData().role == 'head_workshop'; }
+    function isMechanic() { return isSignedIn() && getUserData().role == 'mechanic'; }
+    function belongsToBranch(branchId) { return getUserData().branchId == branchId; }
+    
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // -------------------------------------------------------------------------
+    // DEFAULT DENY
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // BRANCHES
+    // -------------------------------------------------------------------------
+    match /branches/{branchId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // USERS
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() || (isSignedIn() && userId == request.auth.uid);
+      allow update: if isAdmin() || (isSignedIn() && userId == request.auth.uid && !incoming().diff(existing()).affectedKeys().hasAny(['role', 'branchId']));
+    }
+
+    // -------------------------------------------------------------------------
+    // CUSTOMERS
+    // -------------------------------------------------------------------------
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isHeadWorkshop();
+    }
+
+    // -------------------------------------------------------------------------
+    // VEHICLES
+    // -------------------------------------------------------------------------
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // Any staff can record vehicle info
+    }
+
+    // -------------------------------------------------------------------------
+    // ORDERS (SPK)
+    // -------------------------------------------------------------------------
+    match /orders/{orderId} {
+      allow read: if isSignedIn();
+      
+      function isValidOrder(data) {
+        return data.spkNumber is string && data.spkNumber.size() > 0 
+          && data.branchId is string
+          && data.customerId is string
+          && data.vehicleId is string
+          && data.status in ["draft", "analysis", "estimate", "waiting_approval", "approved", "on_progress", "qc", "completed", "invoiced", "paid", "cancelled", "pending_sparepart"];
+      }
+
+      allow create: if isSignedIn() && isValidOrder(incoming());
+      
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (isHeadWorkshop() && belongsToBranch(existing().branchId)) ||
+        (isMechanic() && belongsToBranch(existing().branchId) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'analysis', 'complaint', 'mechanicIds', 'updatedAt']))
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // SPARE PARTS
+    // -------------------------------------------------------------------------
+    match /spareParts/{partId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isHeadWorkshop();
+    }
+
+    // -------------------------------------------------------------------------
+    // INVENTORY
+    // -------------------------------------------------------------------------
+    match /inventory/{invId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isHeadWorkshop();
+    }
+
+    // -------------------------------------------------------------------------
+    // INVOICES
+    // -------------------------------------------------------------------------
+    match /invoices/{invId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isHeadWorkshop();
+    }
+
+    // -------------------------------------------------------------------------
+    // AUDIT LOGS
+    // -------------------------------------------------------------------------
+    match /auditLogs/{logId} {
+      allow read: if isAdmin() || isHeadWorkshop();
+      allow create: if isSignedIn();
+    }
+  }
+}
