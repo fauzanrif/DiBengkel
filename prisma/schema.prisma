@@ -168,6 +168,8 @@ model Inventory {
   bin       String?
   
   movements InventoryMovement[]
+  incomingTransfers StockTransfer[] @relation("ToInventory")
+  outgoingTransfers StockTransfer[] @relation("FromInventory")
   updatedAt DateTime @updatedAt
 
   @@unique([branchId, partId, warehouseId])
@@ -189,11 +191,25 @@ model InventoryMovement {
   inventory    Inventory @relation(fields: [inventoryId], references: [id])
   type         String   // in, out, reservation, release, transfer, adjustment
   quantity     Float
-  referenceId  String?  // Order ID, Transfer ID, etc.
-  referenceType String? // "order", "transfer", "adjustment"
+  referenceId  String?  // Order ID, StockTransfer ID, etc.
+  referenceType String? // "order", "stock_transfer", "adjustment"
   note         String?
   userId       String?
   createdAt    DateTime @default(now())
+}
+
+model StockTransfer {
+  id               String    @id @default(uuid())
+  fromInventoryId  String
+  fromInventory    Inventory @relation("FromInventory", fields: [fromInventoryId], references: [id])
+  toInventoryId    String
+  toInventory      Inventory @relation("ToInventory", fields: [toInventoryId], references: [id])
+  quantity         Float
+  status           String    @default("completed") // pending, completed, cancelled
+  note             String?
+  userId           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model SparePartRequest {
@@ -219,6 +235,9 @@ model Invoice {
   orderId       String   @unique
   order         Order    @relation(fields: [orderId], references: [id])
   number        String   @unique
+  subtotal      Decimal  @default(0)
+  discountType  String?  // 'percentage', 'flat'
+  discountValue Decimal? @default(0)
   totalAmount   Decimal
   status        String   // draft, approved, delivered, paid, partially_paid
   dueDate       DateTime?

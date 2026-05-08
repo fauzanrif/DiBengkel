@@ -38,7 +38,7 @@ export class BillingService {
     });
   }
 
-  async createInvoice(orderId: string) {
+  async createInvoice(orderId: string, discountType?: string, discountValue?: number) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true, customer: true },
@@ -46,6 +46,23 @@ export class BillingService {
 
     if (!order) throw new Error('Order not found');
     if (order.status !== 'done') throw new Error('Order must be in status DONE to invoice');
+
+    // Calculate subtotal from items (price * qty - item_discount)
+    const subtotal = order.items.reduce((sum, item) => {
+      const price = Number(item.price);
+      const qty = Number(item.quantity);
+      const itemDiscount = Number(item.discount || 0);
+      return sum + (price * qty - itemDiscount);
+    }, 0);
+
+    let totalAmount = subtotal;
+    if (discountType === 'percentage' && discountValue) {
+      totalAmount = subtotal - (subtotal * (discountValue / 100));
+    } else if (discountType === 'flat' && discountValue) {
+      totalAmount = subtotal - discountValue;
+    }
+
+    if (totalAmount < 0) totalAmount = 0;
 
     const year = new Date().getFullYear();
     const rand = Math.floor(1000 + Math.random() * 9000);
@@ -56,7 +73,10 @@ export class BillingService {
         data: {
           orderId: order.id,
           number: invoiceNumber,
-          totalAmount: order.estimatedTotal,
+          subtotal: subtotal,
+          discountType: discountType || null,
+          discountValue: discountValue || 0,
+          totalAmount: totalAmount,
           status: 'draft',
           dueDate: null, // Set during delivery
         },
@@ -201,6 +221,7 @@ export class BillingService {
         data: {
           orderId: order2.id,
           number: `INV-DUM-DRAFT-${Math.floor(Math.random() * 1000)}`,
+          subtotal: 1200000,
           totalAmount: 1200000,
           status: 'draft',
         }
@@ -225,6 +246,7 @@ export class BillingService {
         data: {
           orderId: order3.id,
           number: `INV-DUM-PAID-${Math.floor(Math.random() * 1000)}`,
+          subtotal: 3500000,
           totalAmount: 3500000,
           status: 'paid',
           deliveryDate: new Date(Date.now() - 7 * 86400000),

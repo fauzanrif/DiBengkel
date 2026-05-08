@@ -223,9 +223,9 @@ export class OrdersService {
       await this.reserveInventory(id);
     }
 
-    // 3. Deduction logic when transitioning to closed or completed
-    if (status === 'closed' || status === 'completed') {
-       if (order.status !== 'closed' && order.status !== 'completed') {
+    // 3. Deduction logic when transitioning to closed or done
+    if (status === 'closed' || status === 'done') {
+       if (order.status !== 'closed' && order.status !== 'done') {
          await this.deductInventory(id);
        }
     }

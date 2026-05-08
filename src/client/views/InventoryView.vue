@@ -59,7 +59,7 @@
         <button @click="openMoveModal('in')" class="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2">
           <Plus :size="16" /> Stock In
         </button>
-        <button @click="openMoveModal('transfer')" class="bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
+        <button @click="openTransferModal()" class="bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
           <ArrowRightLeft :size="16" /> Transfer
         </button>
       </div>
@@ -311,7 +311,7 @@
                      <Settings2 :size="20" class="text-slate-400 group-hover:text-blue-600" />
                      <span class="text-[9px] font-black uppercase tracking-widest">Adjust Stock</span>
                  </button>
-                 <button @click="openMoveModal('transfer', selectedItem)" class="flex flex-col items-center gap-1 p-3 bg-white border border-slate-200 rounded-2xl hover:border-blue-500 hover:text-blue-600 transition-all group">
+                 <button @click="openTransferModal(selectedItem)" class="flex flex-col items-center gap-1 p-3 bg-white border border-slate-200 rounded-2xl hover:border-blue-500 hover:text-blue-600 transition-all group">
                      <ArrowRightLeft :size="20" class="text-slate-400 group-hover:text-blue-600" />
                      <span class="text-[9px] font-black uppercase tracking-widest">Transfer to...</span>
                  </button>
@@ -371,6 +371,83 @@
             </div>
         </div>
     </div>
+
+    <!-- Stock Transfer Modal -->
+    <div v-if="isTransferModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="isTransferModalOpen = false"></div>
+        <div class="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl relative">
+            <div class="p-8 border-b border-slate-100">
+                <h3 class="text-2xl font-black text-slate-800 tracking-tight uppercase">Transfer Stock</h3>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Inter-Branch & Warehouse Movement</p>
+            </div>
+            
+            <div class="p-8 space-y-5">
+                <div v-if="!actionItem">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Source Item</label>
+                    <select v-model="transferForm.fromInventoryId" class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 px-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all">
+                        <option value="">Select Item to Transfer...</option>
+                        <option v-for="item in inventory" :key="item.id" :value="item.id">
+                            {{ item.part.name }} ({{ item.part.code }}) @ {{ item.branch.name }}
+                        </option>
+                    </select>
+                </div>
+                <div v-else class="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                    <p class="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1">Transferring</p>
+                    <p class="text-sm font-black text-blue-700">{{ actionItem.part.name }}</p>
+                    <p class="text-[10px] font-bold text-blue-500 uppercase mt-0.5">FROM: {{ actionItem.branch.name }} / {{ actionItem.warehouse?.name || 'Main' }}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Dest. Branch</label>
+                        <select v-model="transferForm.toBranchId" @change="handleBranchChange" class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 px-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all">
+                            <option value="">Select Branch...</option>
+                            <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Dest. Warehouse</label>
+                        <select v-model="transferForm.toWarehouseId" class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 px-4 text-xs font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all" :disabled="!transferForm.toBranchId">
+                            <option value="">Select WH...</option>
+                            <option v-for="w in targetWarehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Transfer Quantity</label>
+                    <div class="flex items-center gap-4">
+                        <input 
+                            v-model.number="transferForm.quantity"
+                            type="number" 
+                            class="flex-1 bg-slate-50 border border-slate-100 rounded-2xl py-3.5 px-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                            placeholder="0"
+                        >
+                        <span class="text-xs font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-4 py-3.5 rounded-2xl">
+                             UNITS
+                        </span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Transfer Note</label>
+                    <input 
+                        v-model="transferForm.note"
+                        type="text" 
+                        placeholder="Purpose of transfer..."
+                        class="w-full bg-slate-50 border border-slate-100 rounded-2xl py-3.5 px-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    >
+                </div>
+            </div>
+
+            <div class="p-8 bg-slate-50 flex gap-3">
+                <button @click="isTransferModalOpen = false" class="flex-1 py-4 text-xs font-black text-slate-500 uppercase tracking-widest hover:text-slate-800 transition-colors">Cancel</button>
+                <button @click="submitTransfer" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
+                    Confirm Transfer
+                </button>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
 
@@ -402,6 +479,7 @@ import {
 
 const inventory = ref([]);
 const warehouses = ref([]);
+const branches = ref([]);
 const notifications = ref([]);
 const isNotificationsOpen = ref(false);
 const selectedWarehouseId = ref('');
@@ -413,13 +491,25 @@ const unreadCount = computed(() => {
 });
 
 const isMoveModalOpen = ref(false);
+const isTransferModalOpen = ref(false);
 const moveType = ref('in');
 const actionItem = ref(null);
+
 const moveForm = ref({
     inventoryId: '',
     quantity: 0,
     note: ''
 });
+
+const transferForm = ref({
+    fromInventoryId: '',
+    toBranchId: '',
+    toWarehouseId: '',
+    quantity: 0,
+    note: ''
+});
+
+const targetWarehouses = ref([]);
 
 const lowStockCount = computed(() => {
     return inventory.value.filter(i => (i.quantity - i.reserved) <= i.minStock).length;
@@ -446,16 +536,71 @@ const filteredInventory = computed(() => {
 
 const fetchInventoryData = async () => {
     try {
-        const [invRes, whRes, notiRes] = await Promise.all([
+        const [invRes, whRes, notiRes, branchRes] = await Promise.all([
             fetch('/api/inventory'),
             fetch('/api/inventory/warehouses'),
-            fetch('/api/inventory/notifications')
+            fetch('/api/inventory/notifications'),
+            fetch('/api/inventory/branches')
         ]);
         if (invRes.ok) inventory.value = await invRes.json();
         if (whRes.ok) warehouses.value = await whRes.json();
         if (notiRes.ok) notifications.value = await notiRes.json();
+        if (branchRes.ok) branches.value = await branchRes.json();
     } catch (err) {
         console.error("Inventory: Failed to fetch data", err);
+    }
+};
+
+const handleBranchChange = async () => {
+    transferForm.value.toWarehouseId = '';
+    if (!transferForm.value.toBranchId) {
+        targetWarehouses.value = [];
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/inventory/warehouses?branchId=${transferForm.value.toBranchId}`);
+        if (res.ok) {
+            targetWarehouses.value = await res.json();
+        }
+    } catch (err) {
+        console.error("Failed to fetch warehouses for branch", err);
+    }
+};
+
+const openTransferModal = (item = null) => {
+    actionItem.value = item;
+    transferForm.value = {
+        fromInventoryId: item ? item.id : '',
+        toBranchId: item ? item.branchId : '',
+        toWarehouseId: '',
+        quantity: 0,
+        note: ''
+    };
+    handleBranchChange();
+    isTransferModalOpen.value = true;
+};
+
+const submitTransfer = async () => {
+    if (!transferForm.value.toWarehouseId || transferForm.value.quantity <= 0) return;
+    
+    try {
+        const res = await fetch('/api/inventory/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(transferForm.value)
+        });
+        
+        if (res.ok) {
+            isTransferModalOpen.value = false;
+            selectedItem.value = null;
+            await fetchInventoryData();
+        } else {
+            const errData = await res.json();
+            alert(errData.message || "Transfer failed");
+        }
+    } catch (err) {
+        console.error("Transfer error", err);
     }
 };
 

@@ -21,8 +21,12 @@ export class BillingController {
 
   @Post('invoices')
   @ApiOperation({ summary: 'Generate invoice from an order' })
-  createInvoice(@Body('orderId') orderId: string) {
-    return this.billingService.createInvoice(orderId);
+  createInvoice(
+    @Body('orderId') orderId: string,
+    @Body('discountType') discountType?: string,
+    @Body('discountValue') discountValue?: number,
+  ) {
+    return this.billingService.createInvoice(orderId, discountType, discountValue);
   }
 
   @Get('accounts')

@@ -140,4 +140,101 @@ export class InventoryService {
       data: { isRead: true }
     });
   }
+
+  async transferStock(dto: {
+    fromInventoryId: string;
+    toWarehouseId: string;
+    toBranchId: string;
+    quantity: number;
+    note?: string;
+    userId?: string;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Source Inventory
+      const fromInv = await tx.inventory.findUnique({
+        where: { id: dto.fromInventoryId },
+        include: { part: true, branch: true }
+      });
+      if (!fromInv) throw new Error('Source inventory not found');
+      if (fromInv.quantity < dto.quantity) throw new Error('Insufficient stock for transfer');
+
+      // 2. Find or Create Destination Inventory
+      let toInv = await tx.inventory.findUnique({
+        where: {
+          branchId_partId_warehouseId: {
+            branchId: dto.toBranchId,
+            partId: fromInv.partId,
+            warehouseId: dto.toWarehouseId
+          }
+        }
+      });
+
+      if (!toInv) {
+        toInv = await tx.inventory.create({
+          data: {
+            branchId: dto.toBranchId,
+            partId: fromInv.partId,
+            warehouseId: dto.toWarehouseId,
+            quantity: 0
+          }
+        });
+      }
+
+      // 3. Create StockTransfer Record
+      const transfer = await tx.stockTransfer.create({
+        data: {
+          fromInventoryId: fromInv.id,
+          toInventoryId: toInv.id,
+          quantity: dto.quantity,
+          note: dto.note,
+          userId: dto.userId
+        }
+      });
+
+      // 4. Update Source Inventory
+      await tx.inventory.update({
+        where: { id: fromInv.id },
+        data: { quantity: { decrement: dto.quantity } }
+      });
+
+      // 5. Update Destination Inventory
+      await tx.inventory.update({
+        where: { id: toInv.id },
+        data: { quantity: { increment: dto.quantity } }
+      });
+
+      // 6. Log Movements - individual creates to be safe with all versions
+      await tx.inventoryMovement.create({
+        data: {
+          inventoryId: fromInv.id,
+          type: 'transfer',
+          quantity: dto.quantity * -1,
+          referenceId: transfer.id,
+          referenceType: 'stock_transfer',
+          note: `Transfer to branch ${dto.toBranchId} WH ${dto.toWarehouseId}. ${dto.note || ''}`,
+          userId: dto.userId
+        }
+      });
+
+      await tx.inventoryMovement.create({
+        data: {
+          inventoryId: toInv.id,
+          type: 'transfer',
+          quantity: dto.quantity,
+          referenceId: transfer.id,
+          referenceType: 'stock_transfer',
+          note: `Transfer from ${fromInv.branch.name} WH ${fromInv.warehouseId || 'Main'}. ${dto.note || ''}`,
+          userId: dto.userId
+        }
+      });
+
+      return transfer;
+    });
+  }
+
+  async getBranches() {
+    return this.prisma.branch.findMany({
+      orderBy: { name: 'asc' }
+    });
+  }
 }

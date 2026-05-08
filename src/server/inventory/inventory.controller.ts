@@ -39,4 +39,14 @@ export class InventoryController {
   markRead(@Param('id') id: string) {
     return this.inventoryService.markNotificationRead(id);
   }
+
+  @Post('transfer')
+  transferStock(@Body() dto: any) {
+    return this.inventoryService.transferStock(dto);
+  }
+
+  @Get('branches')
+  getBranches() {
+    return this.inventoryService.getBranches();
+  }
 }

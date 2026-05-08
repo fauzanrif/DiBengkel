@@ -2,7 +2,10 @@
   <div class="p-8 space-y-6">
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div v-for="stat in stats" :key="stat.label" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-1 hover:shadow-md transition-all group">
+      <div v-for="stat in stats" :key="stat.label" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-1 hover:shadow-md transition-all group relative overflow-hidden">
+        <div v-if="stat.isAlert && stat.value !== '0'" class="absolute -right-2 -top-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center border-4 border-white shadow-sm">
+           <span class="text-white text-[10px] font-black">!</span>
+        </div>
         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{{ stat.label }}</span>
         <div class="flex items-end gap-2 mt-1">
           <span class="text-3xl font-bold text-slate-800 tracking-tight">{{ stat.value }}</span>
@@ -113,7 +116,7 @@ onMounted(orderStore.fetchOrders);
 
 const stats = computed(() => [
   { label: "Active Orders", value: orderStore.workOrders.length.toString(), change: "+12%", trend: "up" },
-  { label: "Revenue (MTD)", value: "$64,280", change: "+8.4%", trend: "up" },
+  { label: "Pending Billing", value: orderStore.orders.filter(o => o.status === 'done' && !o.invoice).length.toString(), change: "Ready", trend: "up", isAlert: true },
   { label: "Low Stock Parts", value: "08", change: "-2", trend: "down" },
   { label: "Efficiency Rate", value: "92%", change: "+2.1%", trend: "up" },
 ]);
@@ -134,7 +137,7 @@ const getStatusColor = (status) => {
     case 'draft': return 'bg-slate-100 text-slate-700 border-slate-200';
     case 'approved': return 'bg-blue-100 text-blue-700 border-blue-200';
     case 'on_progress': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    case 'completed': return 'bg-slate-100 text-slate-500 border-slate-200';
+    case 'done': return 'bg-slate-100 text-slate-500 border-slate-200';
     default: return 'bg-amber-100 text-amber-700 border-amber-200';
   }
 };

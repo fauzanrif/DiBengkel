@@ -59,7 +59,7 @@
           </div>
 
           <button 
-            @click="generateInvoice(order.id)"
+            @click="openConfirmModal(order)"
             class="w-full bg-slate-900 text-white py-2.5 rounded-xl text-xs font-black hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/10 active:scale-95"
           >
             GENERATE INVOICE <ArrowRight :size="14" />
@@ -106,6 +106,9 @@
                 </td>
                 <td class="px-8 py-5 text-right">
                    <div class="font-black text-slate-800 text-sm">${{ Number(inv.totalAmount).toLocaleString() }}</div>
+                   <div v-if="inv.discountValue > 0" class="text-[9px] font-bold text-emerald-500 uppercase">
+                     -{{ inv.discountType === 'percentage' ? inv.discountValue + '%' : '$' + inv.discountValue }}
+                   </div>
                    <div v-if="inv.dueDate" class="text-[9px] font-bold" :class="isOverdue(inv.dueDate) ? 'text-red-500' : 'text-slate-400'">
                      Due: {{ new Date(inv.dueDate).toLocaleDateString() }}
                    </div>
@@ -210,6 +213,61 @@
             </div>
         </div>
     </div>
+
+    <!-- Generate Invoice with Discount Modal -->
+    <div v-if="isConfirmModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div class="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
+            <h3 class="text-2xl font-black text-slate-800 tracking-tight mb-2 text-center">Confirm Invoice</h3>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-8 text-center">Set Final Adjustments for {{ selectedOrder?.vehicle?.plateNumber }}</p>
+
+            <div class="space-y-6">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center">
+                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Subtotal</span>
+                    <span class="text-lg font-black text-slate-800">${{ Number(selectedOrder?.estimatedTotal).toLocaleString() }}</span>
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Discount Type</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button 
+                            v-for="type in [{val: null, label: 'NONE'}, {val: 'percentage', label: '%'}, {val: 'flat', label: '$'}]" 
+                            :key="type.label || 'none'"
+                            @click="invoiceDiscount.type = type.val"
+                            :class="[invoiceDiscount.type === type.val ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-50 text-slate-500 border border-slate-100']"
+                            class="py-2.5 rounded-xl text-[10px] font-black uppercase transition-all"
+                        >
+                            {{ type.label }}
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="invoiceDiscount.type">
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 px-1">Discount Value ({{ invoiceDiscount.type === 'percentage' ? '%' : '$' }})</label>
+                    <input 
+                        v-model.number="invoiceDiscount.value"
+                        type="number" 
+                        class="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm font-black outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                        placeholder="Enter value..."
+                    />
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                   <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimated Total</p>
+                   <p class="text-2xl font-black text-blue-600 tracking-tighter">${{ finalEstimatedTotal.toLocaleString() }}</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mt-10">
+                <button @click="isConfirmModalOpen = false" class="py-3 rounded-xl text-xs font-black text-slate-400 uppercase hover:bg-slate-50 transition-all">Cancel</button>
+                <button 
+                    @click="confirmAndGenerateInvoice"
+                    class="bg-slate-900 text-white py-3 rounded-xl text-xs font-black uppercase hover:bg-blue-600 shadow-lg shadow-slate-900/10 transition-all active:scale-95"
+                >
+                    Generate Now
+                </button>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
 
@@ -232,13 +290,32 @@ const pendingOrders = ref([]);
 const invoices = ref([]);
 const accounts = ref([]);
 const isPaymentModalOpen = ref(false);
+const isConfirmModalOpen = ref(false);
 const selectedInvoice = ref(null);
+const selectedOrder = ref(null);
+
+const invoiceDiscount = ref({
+    type: null,
+    value: 0
+});
 
 const paymentForm = ref({
     amount: 0,
     method: 'cash',
     accountId: '',
     reference: ''
+});
+
+const finalEstimatedTotal = computed(() => {
+    if (!selectedOrder.value) return 0;
+    const base = Number(selectedOrder.value.estimatedTotal);
+    if (!invoiceDiscount.value.type) return base;
+    
+    if (invoiceDiscount.value.type === 'percentage') {
+        return base - (base * (invoiceDiscount.value.value / 100));
+    } else {
+        return base - invoiceDiscount.value.value;
+    }
 });
 
 const isOverdue = (date) => {
@@ -279,6 +356,32 @@ const updateInvStatus = async (id, status) => {
   } catch (err) {
     console.error("Billing: Update status failed", err);
   }
+};
+
+const openConfirmModal = (order) => {
+    selectedOrder.value = order;
+    invoiceDiscount.value = { type: null, value: 0 };
+    isConfirmModalOpen.value = true;
+};
+
+const confirmAndGenerateInvoice = async () => {
+    try {
+        const res = await fetch('/api/billing/invoices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                orderId: selectedOrder.value.id,
+                discountType: invoiceDiscount.value.type,
+                discountValue: invoiceDiscount.value.value
+            })
+        });
+        if (res.ok) {
+            isConfirmModalOpen.value = false;
+            await fetchBillingData();
+        }
+    } catch (err) {
+        console.error("Billing: Failed to generate invoice", err);
+    }
 };
 
 const generateInvoice = async (orderId) => {
