@@ -1,11 +1,20 @@
-import { Controller, Get, Post, Body, Param, Put, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 
 @ApiTags('Orders')
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    @Inject(OrdersService)
+    private readonly ordersService: OrdersService
+  ) {
+    if (!this.ordersService) {
+      console.error('❌ OrdersService failed to inject in OrdersController');
+    } else {
+      console.log('✅ OrdersController initialized with OrdersService');
+    }
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create a new SPK (Digital Work Order)' })
@@ -17,6 +26,11 @@ export class OrdersController {
   @ApiOperation({ summary: 'List all active orders' })
   findAll() {
     return this.ordersService.findAll();
+  }
+
+  @Post('booking')
+  createBooking(@Body() dto: any) {
+    return this.ordersService.createBooking(dto);
   }
 
   @Get(':id')

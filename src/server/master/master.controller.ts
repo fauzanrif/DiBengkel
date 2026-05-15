@@ -1,12 +1,25 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('master')
 export class MasterController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService
+  ) {
+    if (!this.prisma) {
+      console.error('❌ PrismaService failed to inject in MasterController');
+    } else {
+      console.log('✅ MasterController initialized with PrismaService');
+    }
+  }
 
   @Get('workshops')
   async getWorkshops() {
+    if (!this.prisma || !this.prisma.branch) {
+      console.error('Prisma or Branch model is undefined');
+      return [];
+    }
     return this.prisma.branch.findMany({
       orderBy: { name: 'asc' }
     });

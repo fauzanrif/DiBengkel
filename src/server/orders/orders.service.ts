@@ -1,9 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService
+  ) {
+    if (!this.prisma) {
+      console.error('❌ PrismaService failed to inject in OrdersService');
+    } else {
+      console.log('✅ OrdersService initialized with PrismaService');
+    }
+  }
 
   async create(dto: any) {
     return this.prisma.$transaction(async (tx) => {
@@ -37,7 +46,7 @@ export class OrdersService {
         vehicle = await tx.vehicle.create({
           data: {
             plateNumber: dto.plateNumber.toUpperCase(),
-            modelId: dto.vehicleModelId,
+            model: dto.vehicleModel,
             customerId: customer.id,
           },
         });
@@ -122,41 +131,7 @@ export class OrdersService {
         });
       }
 
-      // 7. Reserve Stock if status is approved during creation
-      if (dto.status === 'approved') {
-        const items = await tx.orderItem.findMany({
-          where: { orderId: order.id, isService: false },
-        });
-
-        for (const item of items) {
-          if (!item.partId) continue;
-          
-          // Find the primary inventory for this branch
-          const inv = await tx.inventory.findFirst({
-            where: { branchId: order.branchId, partId: item.partId }
-          });
-
-          if (inv) {
-            await tx.inventory.update({
-              where: { id: inv.id },
-              data: { reserved: { increment: item.quantity } },
-            });
-            
-            await tx.inventoryMovement.create({
-              data: {
-                inventoryId: inv.id,
-                type: 'reservation',
-                quantity: item.quantity,
-                referenceId: order.id,
-                referenceType: 'order',
-                note: `Reservation for SPK: ${order.spkNumber}`
-              }
-            });
-          }
-        }
-      }
-
-      // 8. Update Total
+      // 7. Update Total
       return tx.order.update({
         where: { id: order.id },
         data: { estimatedTotal: total },
@@ -170,8 +145,84 @@ export class OrdersService {
     });
   }
 
+  async createBooking(dto: any) {
+    console.log('📝 Processing booking request:', dto);
+    
+    // Ensure we have a valid branchId, fallback to the first one if necessary
+    let branchId = dto.branchId;
+    if (!branchId) {
+      const firstBranch = await this.prisma.branch.findFirst();
+      branchId = firstBranch?.id || 'cakung';
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Find or Create Customer
+      let customer = await tx.customer.findFirst({
+        where: { phone: dto.phone },
+      });
+
+      if (!customer) {
+        customer = await tx.customer.create({
+          data: {
+            name: dto.customerName || 'Guest User',
+            phone: dto.phone,
+            email: dto.email,
+            type: dto.customerType || 'individual',
+          },
+        });
+      }
+
+      // 2. Find or Create Vehicle
+      let vehicle = await tx.vehicle.findUnique({
+        where: { plateNumber: (dto.plateNumber || 'B-NEW').toUpperCase() },
+      });
+
+      if (!vehicle) {
+        vehicle = await tx.vehicle.create({
+          data: {
+            plateNumber: (dto.plateNumber || 'B-NEW').toUpperCase(),
+            model: dto.vehicleModel || 'Unknown Model',
+            customerId: customer.id,
+          },
+        });
+      }
+
+      // 3. Generate Booking SPK (using BOK prefix)
+      const spkNumber = `BOK-${new Date().getFullYear()}${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // 4. Create Order with 'book' status
+      const bookingSlot = `${dto.bookingDate || 'TBD'} ${dto.bookingTime || ''}`;
+
+      return tx.order.create({
+        data: {
+          spkNumber,
+          referenceNumber: `Booking: ${bookingSlot}`,
+          branchId: branchId,
+          customerId: customer.id,
+          vehicleId: vehicle.id,
+          complaint: dto.complaint || 'Self-Booking Request',
+          serviceType: dto.serviceMethod || 'walk-in',
+          odometer: parseInt(dto.odometer) || 0,
+          status: 'book',
+          estimatedTotal: 0,
+        },
+        include: {
+          branch: true,
+          customer: true,
+          vehicle: { include: { vehicleModel: true } },
+          items: { include: { task: true, part: true } },
+          mechanics: { include: { mechanic: true } }
+        }
+      });
+    });
+  }
+
+
   async findAll() {
-    console.log('📦 Fetching all orders from database...');
+    if (!this.prisma || !this.prisma.order) {
+      console.error('Prisma or Order model is undefined');
+      return [];
+    }
     try {
       const results = await this.prisma.order.findMany({
         include: {

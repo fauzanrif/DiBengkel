@@ -9,6 +9,7 @@ import express from 'express';
 import path from 'path';
 
 dotenv.config();
+console.log('💎 reflect-metadata loaded:', typeof Reflect.getMetadata === 'function');
 
 // Ensure DATABASE_URL is set for Prisma fallback
 if (!process.env.DATABASE_URL) {
