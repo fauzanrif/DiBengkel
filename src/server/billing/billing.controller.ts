@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Inject } from '@nestjs/common';
 import { BillingService } from './billing.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Billing')
 @Controller('billing')
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    @Inject(BillingService)
+    private readonly billingService: BillingService
+  ) {}
 
   @Get('pending')
   @ApiOperation({ summary: 'Get orders ready for invoicing' })

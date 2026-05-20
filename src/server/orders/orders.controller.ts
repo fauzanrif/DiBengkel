@@ -45,6 +45,12 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, status);
   }
 
+  @Patch(':id/mechanics')
+  @ApiOperation({ summary: 'Assign mechanics to a work order' })
+  assignMechanics(@Param('id') id: string, @Body('mechanicIds') mechanicIds: string[]) {
+    return this.ordersService.assignMechanics(id, mechanicIds);
+  }
+
   @Get('spare-parts/requests')
   @ApiOperation({ summary: 'Get all spare part requests' })
   findAllPartRequests() {

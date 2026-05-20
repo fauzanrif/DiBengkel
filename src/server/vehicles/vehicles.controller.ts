@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Inject } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { VehiclesService } from './vehicles.service';
 
 @ApiTags('Vehicles')
 @Controller('vehicles')
 export class VehiclesController {
-  constructor(private readonly vehiclesService: VehiclesService) {}
+  constructor(
+    @Inject(VehiclesService)
+    private readonly vehiclesService: VehiclesService
+  ) {}
 
   @Post()
   create(@Body() data: any) {

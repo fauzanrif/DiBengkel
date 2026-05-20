@@ -11,9 +11,14 @@ import path from 'path';
 dotenv.config();
 console.log('💎 reflect-metadata loaded:', typeof Reflect.getMetadata === 'function');
 
-// Ensure DATABASE_URL is set for Prisma fallback
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:/app/applet/prisma/dev.db';
+// Ensure DATABASE_URL is set as an absolute path for consistent SQLite resolution
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL === 'file:./dev.db') {
+  process.env.DATABASE_URL = 'file:' + path.join(process.cwd(), 'prisma', 'dev.db');
+} else if (process.env.DATABASE_URL.startsWith('file:')) {
+  const dbPath = process.env.DATABASE_URL.substring(5);
+  if (!path.isAbsolute(dbPath)) {
+    process.env.DATABASE_URL = 'file:' + path.resolve(process.cwd(), dbPath);
+  }
 }
 
 async function bootstrap() {

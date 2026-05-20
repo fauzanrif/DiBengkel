@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class BillingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService)
+    private prisma: PrismaService
+  ) {}
 
   async getPendingInvoices() {
     // Orders that are 'done' but have no invoice linked
@@ -28,6 +31,13 @@ export class BillingService {
           include: {
             customer: true,
             vehicle: true,
+            branch: true,
+            items: {
+              include: {
+                task: true,
+                part: true,
+              },
+            },
           },
         },
         payments: {

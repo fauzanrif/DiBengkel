@@ -9,7 +9,14 @@ import {
   Users, 
   Bell, 
   MapPin,
-  Clock
+  Clock,
+  ShoppingCart,
+  Truck,
+  Layers,
+  Database,
+  BarChart3,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { OrderProvider, useOrders } from './contexts/OrderContext';
 import NewRequisitionModal from './components/NewRequisitionModal';
@@ -24,6 +31,13 @@ import BillingView from './views/BillingView';
 import PortalBooking from './views/PortalBooking';
 import PortalTracking from './views/PortalTracking';
 
+// New Enterprise Views
+import SalesView from './views/SalesView';
+import ProcurementView from './views/ProcurementView';
+import ConsignmentView from './views/ConsignmentView';
+import MasterDataView from './views/MasterDataView';
+import ReportsView from './views/ReportsView';
+
 const AppContent: React.FC = () => {
   const location = useLocation();
   const { isModalOpen, closeModal, fetchOrders, openModal } = useOrders();
@@ -32,13 +46,32 @@ const AppContent: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const menuItems = [
-    { name: "Dashboard", path: "/", icon: LayoutDashboard },
-    { name: "Maint. Requisition", path: "/requisitions", icon: ClipboardList },
-    { name: "Work Orders", path: "/work-orders", icon: Wrench },
-    { name: "Inventory Tracking", path: "/inventory", icon: Package },
-    { name: "Billing & Invoices", path: "/billing", icon: Receipt },
-    { name: "Mechanics & Flow", path: "/mechanics", icon: Users },
+  const menuGroups = [
+    {
+      label: "Operations",
+      items: [
+        { name: "Dashboard", path: "/", icon: LayoutDashboard },
+        { name: "Maint. Requisitions", path: "/requisitions", icon: ClipboardList },
+        { name: "Work Orders", path: "/work-orders", icon: Wrench },
+        { name: "Inventory Tracking", path: "/inventory", icon: Package },
+      ]
+    },
+    {
+      label: "Commercial",
+      items: [
+        { name: "Sales & POS", path: "/sales", icon: ShoppingCart },
+        { name: "Procurement", path: "/procurement", icon: Truck },
+        { name: "Consignment", path: "/consignment", icon: Layers },
+      ]
+    },
+    {
+      label: "Administration",
+      items: [
+        { name: "Billing & Invoices", path: "/billing", icon: Receipt },
+        { name: "Master Data", path: "/master-data", icon: Database },
+        { name: "Reports & Analytics", path: "/reports", icon: BarChart3 },
+      ]
+    }
   ];
 
   const portalItems = [
@@ -59,46 +92,53 @@ const AppContent: React.FC = () => {
           </span>
         </div>
         
-        <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-          <div className="px-3 mb-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60">Main ERP</p>
-          </div>
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link 
-                key={item.path} 
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all group ${
-                  isActive ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Icon size={18} className="group-hover:scale-110 transition-transform" />
-                {item.name}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto">
+          {menuGroups.map((group) => (
+            <div key={group.label} className="space-y-1">
+              <div className="px-3 mb-2 flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60">{group.label}</p>
+                <ChevronRight size={10} className="text-slate-500 opacity-40" />
+              </div>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+                return (
+                  <Link 
+                    key={item.path} 
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                      isActive ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30 shadow-lg shadow-blue-900/10' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <Icon size={18} className={`${isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'} transition-colors`} />
+                    <span className="truncate">{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
 
-          <div className="px-3 mt-8 mb-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60">Customer Portal</p>
+          <div className="space-y-1">
+            <div className="px-3 mb-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 opacity-60">Customer Portal</p>
+            </div>
+            {portalItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <Link 
+                  key={item.path} 
+                  to={item.path}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                    isActive ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Icon size={18} className={`${isActive ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'} transition-colors`} />
+                  <span className="truncate">{item.name}</span>
+                </Link>
+              );
+            })}
           </div>
-          {portalItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link 
-                key={item.path} 
-                to={item.path}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all group ${
-                  isActive ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30' : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Icon size={18} className="group-hover:scale-110 transition-transform" />
-                {item.name}
-              </Link>
-            );
-          })}
         </nav>
 
         <div className="p-4 border-t border-slate-700/50">
@@ -142,6 +182,11 @@ const AppContent: React.FC = () => {
             <Route path="/work-orders" element={<WorkOrder />} />
             <Route path="/inventory" element={<InventoryView />} />
             <Route path="/billing" element={<BillingView />} />
+            <Route path="/sales/*" element={<SalesView />} />
+            <Route path="/procurement/*" element={<ProcurementView />} />
+            <Route path="/consignment/*" element={<ConsignmentView />} />
+            <Route path="/master-data/*" element={<MasterDataView />} />
+            <Route path="/reports/*" element={<ReportsView />} />
             <Route path="/portal/booking" element={<PortalBooking />} />
             <Route path="/portal/tracking" element={<PortalTracking />} />
             <Route path="*" element={<Dashboard />} />

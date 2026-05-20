@@ -257,6 +257,40 @@ export class OrdersService {
     return order;
   }
 
+  async assignMechanics(id: string, mechanicIds: string[]) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Delete existing assignments
+      await tx.orderAssignment.deleteMany({
+        where: { orderId: id },
+      });
+
+      // 2. Insert new assignments
+      if (mechanicIds && mechanicIds.length > 0) {
+        for (const mechId of mechanicIds) {
+          if (!mechId) continue;
+          await tx.orderAssignment.create({
+            data: {
+              orderId: id,
+              mechanicId: mechId,
+            },
+          });
+        }
+      }
+
+      // 3. Return updated order
+      return tx.order.findUnique({
+        where: { id },
+        include: {
+          branch: true,
+          customer: true,
+          vehicle: { include: { vehicleModel: true } },
+          items: { include: { task: true, part: true } },
+          mechanics: { include: { mechanic: true } },
+        },
+      });
+    });
+  }
+
   async updateStatus(id: string, status: string) {
     const order = await this.findOne(id);
     const data: any = { status };
@@ -279,6 +313,42 @@ export class OrdersService {
        if (order.status !== 'closed' && order.status !== 'done') {
          await this.deductInventory(id);
        }
+    }
+
+    // 4. Billing Integration: when WO is closed, automatically generate sales invoice if it doesn't exist yet
+    if (status === 'closed') {
+      const existingInvoice = await this.prisma.invoice.findUnique({
+        where: { orderId: id }
+      });
+      if (!existingInvoice) {
+        const ordWithItems = await this.prisma.order.findUnique({
+          where: { id },
+          include: { items: true, customer: true }
+        });
+        if (ordWithItems) {
+          const subtotal = ordWithItems.items.reduce((sum, item) => {
+            const price = Number(item.price);
+            const qty = Number(item.quantity);
+            const itemDiscount = Number(item.discount || 0);
+            return sum + (price * qty - itemDiscount);
+          }, 0);
+          
+          const totalAmount = subtotal;
+          const year = new Date().getFullYear();
+          const rand = Math.floor(1000 + Math.random() * 9000);
+          const invoiceNumber = `INV-${year}${rand}`;
+          
+          await this.prisma.invoice.create({
+            data: {
+              orderId: id,
+              number: invoiceNumber,
+              subtotal,
+              totalAmount,
+              status: 'draft'
+            }
+          });
+        }
+      }
     }
 
     return this.prisma.order.update({
