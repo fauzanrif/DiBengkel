@@ -23,6 +23,16 @@ export class InventoryController {
     return this.inventoryService.getWarehouses(branchId);
   }
 
+  @Get('notifications')
+  getNotifications() {
+    return this.inventoryService.getNotifications();
+  }
+
+  @Get('branches')
+  getBranches() {
+    return this.inventoryService.getBranches();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.inventoryService.findOne(id);
@@ -33,11 +43,6 @@ export class InventoryController {
     return this.inventoryService.createMovement(dto);
   }
 
-  @Get('notifications')
-  getNotifications() {
-    return this.inventoryService.getNotifications();
-  }
-
   @Patch('notifications/:id/read')
   markRead(@Param('id') id: string) {
     return this.inventoryService.markNotificationRead(id);
@@ -46,10 +51,5 @@ export class InventoryController {
   @Post('transfer')
   transferStock(@Body() dto: any) {
     return this.inventoryService.transferStock(dto);
-  }
-
-  @Get('branches')
-  getBranches() {
-    return this.inventoryService.getBranches();
   }
 }

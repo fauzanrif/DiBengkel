@@ -123,6 +123,23 @@ const BillingView: React.FC = () => {
     fetchBillingData();
   }, []);
 
+  const handleSeedDummy = async () => {
+    try {
+      const res = await fetch('/api/billing/seed-dummy', {
+        method: 'POST',
+      });
+      if (res.ok) {
+        alert('Data dummy Billing & Invoice berhasil dibuat!\n\nWork Order dengan status "closed" otomatis terbit sebagai invoice (draft/ paid) dan siap ditagih di dashboard ini.');
+        await fetchBillingData();
+      } else {
+        const errData = await res.json();
+        alert(`Gagal membuat data dummy: ${errData.message || 'Server error'}`);
+      }
+    } catch (err) {
+      console.error("Failed to seed dummy data", err);
+    }
+  };
+
   // Update State Pipeline
   const updateInvStatus = async (id: string, status: string) => {
     try {
@@ -322,6 +339,13 @@ const BillingView: React.FC = () => {
             <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wide">Open:</span>
             <span className="text-xs font-mono font-extrabold text-amber-900">{pendingOrders.length} SPK Queue</span>
           </div>
+
+          <button 
+            onClick={handleSeedDummy} 
+            className="p-1 px-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 shrink-0 shadow-sm"
+          >
+            <Plus size={12} /> + Dummy Billing Data
+          </button>
 
           <button 
             onClick={fetchBillingData} 

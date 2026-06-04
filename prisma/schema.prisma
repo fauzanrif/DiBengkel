@@ -49,6 +49,33 @@ model Customer {
   orders          Order[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  // ERP integration ready fields
+  searchKey           String?
+  commercialName      String?
+  bpCategory          String?  // Business Partner Category
+  bpType              String?  // Business Partner Type
+  nationality         String?
+  entityProfile       String?
+  taxId               String?
+  fiscalName          String?
+  description         String?
+  url                 String?
+  referenceNo         String?
+  consumptionDays     Int?      @default(0)
+  isActive            Boolean   @default(true)
+  summaryLevel        Boolean   @default(false)
+
+  // Customer Information
+  isCustomer          Boolean   @default(true)
+  financialAccount    String?
+  priceList           String?
+  paymentMethod       String?
+  paymentTerms        String?
+  invoiceTerms        String?
+  salesRep            String?
+  taxExempt           Boolean   @default(false)
+  onHold              Boolean   @default(false)
 }
 
 model Vehicle {
@@ -141,12 +168,36 @@ model SparePart {
   unit           String
   category       String?
   basePrice      Decimal
+  purchasePrice  Decimal  @default(0)
   isConsignment  Boolean  @default(false)
   inventory      Inventory[]
   requestItems   SparePartRequestItem[]
   orderItems     OrderItem[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // ERP integration ready fields
+  searchKey      String?
+  productCategory String?
+  productType    String?
+  uom            String?
+  description    String?
+
+  // Flags
+  flagPurchase   Boolean  @default(true)
+  flagSale       Boolean  @default(true)
+  flagStocked    Boolean  @default(true)
+  flagActive     Boolean  @default(true)
+
+  // Product Attributes
+  typeSeries     String?
+  brand          String?
+  quality        String?
+  partCode       String?
+
+  // Lifetime Information
+  lifetimeKm     Int?     @default(0)
+  lifetimeMonth  Int?     @default(0)
 }
 
 model Inventory {

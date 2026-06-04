@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sup-1",
+    "code": "SUP-001",
+    "name": "ASTRA OTOPARTS TBK",
+    "contact": "Budi Santoso",
+    "phone": "+62-812-445-103",
+    "paymentTerm": "Net 30",
+    "type": "Regular",
+    "address": "Jl. Industri Raya Blok A1 No. 5, Jakarta"
+  },
+  {
+    "id": "sup-2",
+    "code": "SUP-002",
+    "name": "DUNLOP TYRE INDONESIA",
+    "contact": "Siti Aminah",
+    "phone": "+62-811-923-456",
+    "paymentTerm": "Net 15",
+    "type": "Regular",
+    "address": "Kawasan Industri Suryacipta, Karawang"
+  },
+  {
+    "id": "sup-3",
+    "code": "SUP-003",
+    "name": "BOSCH AUTOMOTIVE PARTS",
+    "contact": "Marcus Aurelius",
+    "phone": "+62-821-334-991",
+    "paymentTerm": "COD",
+    "type": "Regular",
+    "address": "Artha Graha Building, SCBD, Jakarta"
+  }
+]
